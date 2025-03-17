@@ -1,6 +1,7 @@
 import BlazeSudio.ldtk.Pyldtk as ldtk
 
 from pygame import Surface, Rect
+from typing import List, Tuple
 import pygame.draw
 import json
 import math
@@ -38,7 +39,8 @@ class World:
         sur = Surface((maxsize[0], maxsize[1])).convert_alpha()
         sur.fill((255, 255, 255, 1))
         w = 8-math.ceil(math.sqrt(len(self.ldtk.levels)))
-        if w < 2: w = 2
+        if w < 2:
+            w = 2
 
         diff = (min([i.worldX for i in self.ldtk.levels]), 
                 min([i.worldY for i in self.ldtk.levels]))
@@ -59,5 +61,17 @@ class World:
     def get_level(self, lvl):
         return self.ldtk.levels[lvl]
 
-    def get_pygame(self, lvl=0, transparent_bg=False):
+    def get_pygame(self, lvl=0, transparent_bg=False) -> pygame.Surface:
         return self.ldtk.levels[lvl].Render(transparent_bg)
+
+    def get_pygame_with_parralax(self, lvl=0, transparent_bg=False) -> List[Tuple[Surface, Tuple[float, float]]]:
+        """This generates it so that instead of bring one layer, it combines all the layers with the same parralax and seperates them into a list of tuples with the surface and the parralax.
+
+        Args:
+            lvl (int, optional): _description_. Defaults to 0.
+            transparent_bg (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            List[Tuple[Surface, Tuple[float, float]]]: A list of tuples with the surface and the parralax.
+        """
+        return self.ldtk.levels[lvl].Render_parralax(transparent_bg)

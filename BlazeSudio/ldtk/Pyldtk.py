@@ -244,8 +244,16 @@ class Ldtklevel:
         self.data: Dict = data
         self.tilesets: Dict[int, Tileset] = tilesets
         self.fileLoc: str = fileloc
+
+        self.parralaxes: List[Tuple[float, float]] = []
         
         self.identifier: str = self.data['identifier']
+
+        try:
+            self.uiFilterTags: List[str] = self.data['uiFilterTags']
+        except KeyError:
+            pass
+
         self.iid: str = self.data['iid']
         self.uid: int = self.data['uid']
         self.worldPos: List[int] = [self.data['worldX'], self.data['worldY'], self.data['worldDepth']]
@@ -271,7 +279,59 @@ class Ldtklevel:
                 self.layers.append(layer(lay, self))
         self.layers.reverse()
     
-    def Render(self, transparent_bg=False):
+    def Render_parralax(self, transparent_bg=False, layersToExclude: List[str] = []) -> List[Tuple[pygame.Surface, Tuple[float, float]]]:
+        """_summary_
+
+        Args:
+            transparent_bg (bool, optional): _description_. Defaults to False.
+            layersToExclude (List[str], optional): A list of strings that are the layers you don't want to render. Defaults to [].
+
+        Returns:
+            List[Tuple[pygame.Surface, Tuple[float, float]]]: _description_
+        """
+        bg = (
+            pygame.Surface(self.sizePx, pygame.SRCALPHA),
+            (0, 0)
+        )
+        end: List[Tuple[pygame.Surface, Tuple[float, float]]] = []
+        
+        if transparent_bg:
+            bg[0].fill((0, 0, 0, 0))
+        else:
+            bgimg = self.bgPic
+            if bgimg is not None:
+                sf = max(self.sizePx[0] / bgimg.get_width(), self.sizePx[1] / bgimg.get_height())
+                bgimg[0].blit(pygame.transform.scale(bgimg, (int(bgimg.get_width() * sf), int(bgimg.get_height() * sf))), (0, 0))
+            else:
+                bg[0].fill(self.bgColour)
+        for i in self.layers:
+            isDrawn = False
+            for layers in end:
+                if layers[1] == i.parralaxScale:
+                    if i.identifier not in layersToExclude:
+                        layers[0].blit(i.getImg(), (0, 0))
+                    isDrawn = True
+            if isDrawn is False:
+                end.append(
+                    (
+                        pygame.Surface(self.sizePx, pygame.SRCALPHA),
+                        i.parralaxScale
+                    )
+                )
+                if i.identifier not in layersToExclude:
+                    end[len(end) - 1][0].blit(i.getImg(), (0, 0))
+        return end
+    
+    def Render(self, transparent_bg=False, layersToExclude: List[str] = []) -> pygame.Surface:
+        """_summary_
+
+        Args:
+            transparent_bg (bool, optional): _description_. Defaults to False.
+            layersToExclude (List[str], optional): A list of strings that are the layers you don't want to render. Defaults to [].
+
+        Returns:
+            pygame.Surface: _description_
+        """
         end = pygame.Surface(self.sizePx, pygame.SRCALPHA)
         if transparent_bg:
             end.fill((0, 0, 0, 0))
@@ -283,7 +343,8 @@ class Ldtklevel:
             else:
                 end.fill(self.bgColour)
         for i in self.layers:
-            end.blit(i.getImg(), (0, 0))
+            if i.identifier not in layersToExclude:
+                end.blit(i.getImg(), (0, 0))
         return end
     
     def CollisionLayer(self, collisionFunc: Callable[[Tileset], pygame.Surface]) -> 'Ldtklevel':
@@ -363,8 +424,7 @@ The outputs will be combined as the return list. This defaults to `lambda e: e`.
 
         Args:
             identifier (str): The identifier that will be searched for within all the entities.
-            processor (Callable): This is a function that will process the entities. It takes in an Entity object and outputs anything. \
-The outputs will be combined as the return list. This defaults to `lambda e: e`. Returning None in this will ignore that entity.
+            processor (Callable): This is a function that will process the entities. It takes in an Entity object and outputs anything. The outputs will be combined as the return list. This defaults to `lambda e: e`. Returning None in this will ignore that entity.
             forceRefreshCache (bool, optional): Force rebuild the cache. Defaults to False.
 
         Returns:
@@ -385,8 +445,7 @@ The outputs will be combined as the return list. This defaults to `lambda e: e`.
 
         Args:
             uid (int): The UID that will be searched for within all the entities.
-            processor (Callable): This is a function that will process the entities. It takes in an Entity object and outputs anything. \
-The outputs will be combined as the return list. This defaults to `lambda e: e`. Returning None in this will ignore that entity.
+            processor (Callable): This is a function that will process the entities. It takes in an Entity object and outputs anything. The outputs will be combined as the return list. This defaults to `lambda e: e`. Returning None in this will ignore that entity.
             forceRefreshCache (bool, optional): Force rebuild the cache. Defaults to False.
         
         Returns:
@@ -415,7 +474,11 @@ class layer:
         self.layerDef: Dict = level.defs['layers'][[i['uid'] for i in level.defs['layers']].index(self.data['layerDefUid'])]
         self.tilesets: Dict[int, Tileset] = level.tilesets
 
+        self.tags = self.layerDef['uiFilterTags']
+        self.parralaxScale: Tuple[float, float] = (self.layerDef['parallaxFactorX'], self.layerDef['parallaxFactorY'])
+
         self.identifier: str = self.data['__identifier']
+        self.uiTags = self.data['__identifier']
         self.iid: str = self.data['iid']
         self.defUid: int = self.data['layerDefUid']
         self.type: str = self.data['__type']
@@ -436,7 +499,7 @@ class layer:
         
         if self.type == "Tiles":
             self.loadTileSheet()
-
+    
     def loadTileSheet(self) -> None:
         """
         Load the tilesheet of the layer.
